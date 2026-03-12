@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Visual Diff Tool</title>
+    <style>
+        :root { --bg: #ffffff; --surface: #f6f8fa; --border: #d0d7de; --text: #24292f; --add-bg: #dafbe1; --rem-bg: #ffebe9; --add-line: #2da44e; --rem-line: #cf222e; }
+        [data-theme="dark"] { --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #c9d1d9; --add-bg: #1a7f3744; --rem-bg: #da363344; }
+
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 20px; }
+        .toolbar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        textarea { height: 200px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-family: monospace; }
+        
+        /* Side-by-Side Comparison Styling */
+        .diff-container { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); overflow: hidden; margin-top: 20px; }
+        .diff-pane { overflow-x: auto; font-family: monospace; font-size: 13px; line-height: 1.5; }
+        .diff-pane:first-child { border-right: 1px solid var(--border); }
+        .diff-line { display: flex; white-space: pre-wrap; min-height: 1.5em; padding: 0 10px; }
+        
+        /* Highlight styles matching the Perl version logic */
+        .line-removed { background-color: var(--rem-bg); border-left: 4px solid var(--rem-line); }
+        .line-added { background-color: var(--add-bg); border-left: 4px solid var(--add-line); }
+        .word-rem { text-decoration: line-through; background: #ffc1c1; }
+        .word-add { background: #abf2bc; }
+        
+        button { padding: 6px 12px; cursor: pointer; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+        .ln { color: #999; width: 30px; user-select: none; border-right: 1px solid var(--border); margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="toolbar">
+    <h3 style="margin:0">Visual Diff</h3>
+    <button onclick="swapTexts()">⇄ Swap</button>
+    <button onclick="toggleTheme()">🌓 Theme</button>
+    <div id="diffNet" style="margin-left:auto; font-size:14px;"></div>
+</div>
+
+<div class="grid">
+    <textarea id="text1" placeholder="Original..."></textarea>
+    <textarea id="text2" placeholder="Modified..."></textarea>
+</div>
+
+<div class="diff-container">
+    <div id="pane1" class="diff-pane"></div>
+    <div id="pane2" class="diff-pane"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/5.1.0/diff.min.js"></script>
+<script>
+    const t1 = document.getElementById('text1');
+    const t2 = document.getElementById('text2');
+    const p1 = document.getElementById('pane1');
+    const p2 = document.getElementById('pane2');
+
+    function toggleTheme() {
+        const doc = document.documentElement;
+        doc.setAttribute('data-theme', doc.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    }
+
+    function swapTexts() {
+        const temp = t1.value;
+        t1.value = t2.value;
+        t2.value = temp;
+        update();
+    }
+
+    function createLine(content, className, num) {
+        return `<div class="diff-line ${className}"><span class="ln">${num}</span><span>${content}</span></div>`;
+    }
+
+    function update() {
+        const diff = Diff.diffLines(t1.value, t2.value);
+        let html1 = '', html2 = '';
+        let n1 = 1, n2 = 1;
+
+        diff.forEach(part => {
+            const lines = part.value.split('\n');
+            if (lines[lines.length - 1] === '') lines.pop();
+
+            lines.forEach(line => {
+                const escaped = line.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                
+                if (part.added) {
+                    html2 += createLine(escaped, 'line-added', n2++);
+                    // Add empty line to left side to keep them in sync
+                    html1 += createLine('', '', ''); 
+                } else if (part.removed) {
+                    html1 += createLine(escaped, 'line-removed', n1++);
+                    html2 += createLine('', '', ''); 
+                } else {
+                    html1 += createLine(escaped, '', n1++);
+                    html2 += createLine(escaped, '', n2++);
+                }
+            });
+        });
+
+        p1.innerHTML = html1;
+        p2.innerHTML = html2;
+    }
+
+    t1.oninput = update;
+    t2.oninput = update;
+</script>
+</body>
+</html>
